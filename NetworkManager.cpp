@@ -39,6 +39,12 @@ void NetworkManager::translateBaidu(const QString& text, const QString& from, co
     qDebug() << "目标语言:" << to;
     qDebug() << "App ID:" << m_baiduAppId;
 
+
+    if (from == "zh" && to == "zh") {
+        qDebug() << "警告：源语言和目标语言相同！";
+    }
+
+
     if (m_baiduAppId.isEmpty() || m_baiduSecretKey.isEmpty()) {
         qDebug() << "错误：API密钥为空，使用模拟翻译";
         QString mockResult = translateMock(text, from, to);

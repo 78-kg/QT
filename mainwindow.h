@@ -32,6 +32,12 @@ private:
     HistoryModel *m_historyModel;
     NetworkManager *m_networkManager;  // 网络管理器
     QString m_currentQuery;  // 当前查询的词
+    QString m_currentFromLang;  // 添加这两个
+    QString m_currentToLang;
+    QString m_displayDirection;
+
+    bool isChineseText(const QString& text);
+    double getChineseCharacterRatio(const QString& text);
 
     void initDatabase();
     void updateHistoryView();

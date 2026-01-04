@@ -49,7 +49,7 @@
        <widget class="QComboBox" name="langComboBox">
         <item>
          <property name="text">
-          <string>中文-&gt;英文</string>
+          <string>英文-&gt;中文</string>
          </property>
          <property name="icon">
           <iconset theme="QIcon::ThemeIcon::AppointmentNew"/>
@@ -57,7 +57,7 @@
         </item>
         <item>
          <property name="text">
-          <string>英文-&gt;中文</string>
+          <string>中文-&gt;英文</string>
          </property>
          <property name="icon">
           <iconset theme="QIcon::ThemeIcon::AppointmentNew"/>

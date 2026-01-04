@@ -74,32 +74,47 @@ void MainWindow::on_searchButton_clicked()
         return;
     }
 
-    m_currentQuery = word;  // 保存当前查询
+    m_currentQuery = word;
 
-    QString langDirection = ui->langComboBox->currentText();
-    QString fromLang = "auto";
-    QString toLang = "zh";
+    int index = ui->langComboBox->currentIndex();
+    QString fromLang, toLang;
+    QString displayDirection;  // 用于在界面上显示的方向
 
-    // 解析语言方向
-    if (langDirection == "英文 -> 中文") {
+    if (index == 0) {  // 英文->中文
         fromLang = "en";
         toLang = "zh";
-    } else if (langDirection == "中文 -> 英文") {
+        displayDirection = "英文->中文";
+    } else if (index == 1) {  // 中文->英文
         fromLang = "zh";
         toLang = "en";
-    } else if (langDirection == "自动检测") {
+        displayDirection = "中文->英文";
+    } else if (index == 2) {  // 自动检测（关键修改！）
+        // 智能检测：根据输入内容判断语言
+        if (isChineseText(word)) {
+            fromLang = "zh";  // 中文->英文
+            toLang = "en";
+            displayDirection = "中文->英文 (自动检测)";
+        } else {
+            fromLang = "en";  // 英文->中文
+            toLang = "zh";
+            displayDirection = "英文->中文 (自动检测)";
+        }
+    } else {
         fromLang = "auto";
         toLang = "zh";
+        displayDirection = "自动检测";
     }
+
+    qDebug() << "翻译设置: " << displayDirection << "(" << fromLang << "->" << toLang << ")";
+
+    // 保存显示方向，用于结果展示
 
     // 显示查询状态
     ui->resultTextEdit->setText("正在查询中...\n请稍候");
     ui->statusbar->showMessage("正在翻译: " + word);
-    ui->searchButton->setEnabled(false);  // 禁用按钮防止重复点击
-
+    ui->searchButton->setEnabled(false);
 
     m_networkManager->translateBaidu(word, fromLang, toLang);
-
 }
 
 void MainWindow::onTranslationFinished(const QString& result, bool success, const QString& error)
@@ -127,7 +142,6 @@ void MainWindow::onTranslationFinished(const QString& result, bool success, cons
 
 void MainWindow::showTranslationResult(const QString& query, const QString& translation)
 {
-    QString langDirection = ui->langComboBox->currentText();
     QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
 
     // 构建漂亮的显示结果
@@ -140,14 +154,14 @@ void MainWindow::showTranslationResult(const QString& query, const QString& tran
                                  "1. This is an example sentence for '%1'.\n"
                                  "2. Another example using the word '%1'.")
                              .arg(query)
-                             .arg(langDirection)
+                             .arg(m_displayDirection)  // 使用保存的显示方向
                              .arg(currentTime)
                              .arg(translation);
 
     ui->resultTextEdit->setText(resultText);
 
     // 保存到历史记录
-    if (DatabaseManager::instance().addHistory(query, translation, "auto", langDirection)) {
+    if (DatabaseManager::instance().addHistory(query, translation, "auto", m_displayDirection)) {
         updateHistoryView();  // 更新历史显示
     }
 
@@ -211,6 +225,92 @@ void MainWindow::on_favoriteButton_clicked()
 
 void MainWindow::on_langComboBox_currentIndexChanged(int index)
 {
-    QString lang = ui->langComboBox->itemText(index);
-    ui->statusbar->showMessage("已切换翻译方向: " + lang, 2000);
+    QString displayText;
+    if (index == 0) {
+        displayText = "英文->中文";
+    } else if (index == 1) {
+        displayText = "中文->英文";
+    } else if (index == 2) {
+        displayText = "自动检测";
+    } else {
+        displayText = ui->langComboBox->itemText(index);
+    }
+
+    ui->statusbar->showMessage("已切换翻译方向: " + displayText, 2000);
+}
+
+// 计算字符串中中文字符的比例
+double MainWindow::getChineseCharacterRatio(const QString& text)
+{
+    if (text.isEmpty()) return 0.0;
+
+    int chineseCount = 0;
+    int totalCount = 0;
+
+    for (int i = 0; i < text.length(); i++) {
+        QChar ch = text.at(i);
+
+        // 统计中文字符（包括汉字、中文标点等）
+        ushort unicode = ch.unicode();
+        if ((unicode >= 0x4E00 && unicode <= 0x9FFF) ||   // 常用汉字
+            (unicode >= 0x3400 && unicode <= 0x4DBF) ||   // 扩展A
+            (unicode >= 0x20000 && unicode <= 0x2A6DF) || // 扩展B
+            (unicode >= 0x3000 && unicode <= 0x303F) ||   // 中文标点符号
+            (unicode >= 0xFF00 && unicode <= 0xFFEF)) {   // 全角字符
+            chineseCount++;
+        }
+
+        // 只统计可见字符
+        if (!ch.isSpace() && ch.category() != QChar::Other_Control) {
+            totalCount++;
+        }
+    }
+
+    if (totalCount == 0) return 0.0;
+    return static_cast<double>(chineseCount) / totalCount;
+}
+
+// 判断文本是否是中文
+bool MainWindow::isChineseText(const QString& text)
+{
+    if (text.isEmpty()) return false;
+
+    // 规则1：如果包含常见中文字符，很可能是中文
+    double ratio = getChineseCharacterRatio(text);
+
+    // 规则2：检查是否有中文特有的词语
+    QString commonChineseWords[] = {"的", "是", "了", "在", "和", "有", "我", "你", "他", "她", "它"};
+    bool hasCommonChinese = false;
+    for (const QString& word : commonChineseWords) {
+        if (text.contains(word)) {
+            hasCommonChinese = true;
+            break;
+        }
+    }
+
+    // 规则3：检查是否是纯英文（不含中文字符）
+    bool isPureEnglish = true;
+    for (int i = 0; i < text.length(); i++) {
+        QChar ch = text.at(i);
+        ushort unicode = ch.unicode();
+        if ((unicode >= 0x4E00 && unicode <= 0x9FFF) ||  // 中文字符范围
+            (unicode >= 0x3000 && unicode <= 0x303F)) {  // 中文标点
+            isPureEnglish = false;
+            break;
+        }
+    }
+
+    // 决策逻辑
+    if (ratio > 0.3) {  // 超过30%的中文字符
+        return true;
+    } else if (hasCommonChinese) {  // 包含常见中文词汇
+        return true;
+    } else if (isPureEnglish) {  // 纯英文
+        return false;
+    } else if (ratio > 0.1) {  // 有一定比例的中文字符
+        return true;
+    } else {
+        // 默认认为是英文
+        return false;
+    }
 }
