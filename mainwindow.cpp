@@ -314,3 +314,65 @@ bool MainWindow::isChineseText(const QString& text)
         return false;
     }
 }
+
+void MainWindow::on_searchHistoryButton_clicked()
+{
+    QString keyword = ui->searchHistoryLineEdit->text().trimmed();
+
+    qDebug() << "搜索历史记录，关键词：" << keyword;
+
+    if (keyword.isEmpty()) {
+        // 如果搜索框为空，显示所有记录
+        m_historyModel->clearSearch();
+        ui->statusbar->showMessage("已显示全部历史记录", 2000);
+        return;
+    }
+
+    // 执行搜索
+    if (m_historyModel) {
+        // 调用HistoryModel的搜索功能
+        m_historyModel->searchHistory(keyword);
+
+        int resultCount = m_historyModel->rowCount();
+        qDebug() << "找到" << resultCount << "条相关记录";
+
+        if (resultCount > 0) {
+            // 滚动到顶部
+            QModelIndex topLeft = m_historyModel->index(0, 0);
+            ui->historyTableView->scrollTo(topLeft);
+
+            ui->statusbar->showMessage(
+                QString("找到 %1 条包含 \"%2\" 的历史记录").arg(resultCount).arg(keyword),
+                3000
+                );
+        } else {
+            ui->statusbar->showMessage(
+                QString("未找到包含 \"%1\" 的历史记录").arg(keyword),
+                3000
+                );
+
+            // 可以添加声音或视觉提示
+            QApplication::beep();  // 提示音
+        }
+    }
+}
+
+void MainWindow::on_searchHistoryLineEdit_returnPressed()
+{
+    // 当用户在搜索框中按回车键时，自动执行搜索
+    on_searchHistoryButton_clicked();
+}
+
+
+void MainWindow::on_clearHistoryButton_clicked()
+{
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "清空历史记录",
+                                  "确定要清空所有历史记录吗？此操作不可恢复！",
+                                  QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes) {
+        m_historyModel->clearHistory();
+        ui->statusbar->showMessage("历史记录已清空", 3000);
+    }
+}

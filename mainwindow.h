@@ -27,6 +27,10 @@ private slots:
     // 新增：翻译结果返回的槽函数
     void onTranslationFinished(const QString& result, bool success, const QString& error);
 
+    void on_searchHistoryButton_clicked();
+    void on_searchHistoryLineEdit_returnPressed();  // 确保这行存在！
+    void on_clearHistoryButton_clicked();
+
 private:
     Ui::MainWindow *ui;
     HistoryModel *m_historyModel;

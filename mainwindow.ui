@@ -14,97 +14,141 @@
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout">
-    <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <widget class="QLineEdit" name="queryLineEdit">
-          <property name="alignment">
-           <set>Qt::AlignmentFlag::AlignCenter</set>
-          </property>
-          <property name="placeholderText">
-           <string>请输入查询单词</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="searchButton">
+   <widget class="QPushButton" name="favoriteButton">
+    <property name="geometry">
+     <rect>
+      <x>6</x>
+      <y>540</y>
+      <width>56</width>
+      <height>18</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>⭐ 收藏</string>
+    </property>
+   </widget>
+   <widget class="QWidget" name="">
+    <property name="geometry">
+     <rect>
+      <x>6</x>
+      <y>6</y>
+      <width>791</width>
+      <height>571</height>
+     </rect>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout">
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QLineEdit" name="queryLineEdit">
+           <property name="alignment">
+            <set>Qt::AlignmentFlag::AlignCenter</set>
+           </property>
+           <property name="placeholderText">
+            <string>请输入查询单词</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="searchButton">
+           <property name="text">
+            <string>查询</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="clearButton">
+           <property name="text">
+            <string>清除</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QComboBox" name="langComboBox">
+         <item>
           <property name="text">
-           <string>查询</string>
+           <string>英文-&gt;中文</string>
           </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="clearButton">
+          <property name="icon">
+           <iconset theme="QIcon::ThemeIcon::AppointmentNew"/>
+          </property>
+         </item>
+         <item>
           <property name="text">
-           <string>清除</string>
+           <string>中文-&gt;英文</string>
           </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <widget class="QComboBox" name="langComboBox">
-        <item>
+          <property name="icon">
+           <iconset theme="QIcon::ThemeIcon::AppointmentNew"/>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>自动检测</string>
+          </property>
+          <property name="icon">
+           <iconset theme="QIcon::ThemeIcon::ListRemove"/>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="label">
+         <property name="font">
+          <font>
+           <family>方正粗黑宋简体</family>
+          </font>
+         </property>
          <property name="text">
-          <string>英文-&gt;中文</string>
+          <string>查询历史</string>
          </property>
-         <property name="icon">
-          <iconset theme="QIcon::ThemeIcon::AppointmentNew"/>
-         </property>
-        </item>
-        <item>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QTextEdit" name="resultTextEdit">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <item>
+        <widget class="QLineEdit" name="searchHistoryLineEdit">
          <property name="text">
-          <string>中文-&gt;英文</string>
+          <string>搜索历史记录</string>
          </property>
-         <property name="icon">
-          <iconset theme="QIcon::ThemeIcon::AppointmentNew"/>
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignCenter</set>
          </property>
-        </item>
-        <item>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="clearHistoryButton">
          <property name="text">
-          <string>自动检测</string>
+          <string>清空历史</string>
          </property>
-         <property name="icon">
-          <iconset theme="QIcon::ThemeIcon::ListRemove"/>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="searchHistoryButton">
+         <property name="text">
+          <string>搜索</string>
          </property>
-        </item>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="label">
-        <property name="font">
-         <font>
-          <family>方正粗黑宋简体</family>
-         </font>
-        </property>
-        <property name="text">
-         <string>查询历史</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <widget class="QTextEdit" name="resultTextEdit">
-      <property name="readOnly">
-       <bool>true</bool>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QTableView" name="historyTableView"/>
-    </item>
-    <item>
-     <widget class="QPushButton" name="favoriteButton">
-      <property name="text">
-       <string>⭐ 收藏</string>
-      </property>
-     </widget>
-    </item>
-   </layout>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QTableView" name="historyTableView"/>
+     </item>
+    </layout>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
