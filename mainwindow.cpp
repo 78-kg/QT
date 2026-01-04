@@ -99,6 +99,7 @@ void MainWindow::on_searchButton_clicked()
 
 
     m_networkManager->translateBaidu(word, fromLang, toLang);
+
 }
 
 void MainWindow::onTranslationFinished(const QString& result, bool success, const QString& error)
