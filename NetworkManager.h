@@ -27,7 +27,6 @@ signals:
 
 private slots:
     void onBaiduReplyFinished(QNetworkReply* reply);
-    void onYoudaoReplyFinished(QNetworkReply* reply);
 
 private:
     QNetworkAccessManager* m_networkManager;

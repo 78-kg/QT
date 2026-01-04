@@ -4,6 +4,8 @@
 #include <QMessageBox>
 #include <QDebug>
 #include <QDateTime>
+#include <QTimer>  // 添加这行！必须包含QTimer头文件
+#include <QTextCursor>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -23,22 +25,32 @@ MainWindow::MainWindow(QWidget *parent)
     ui->historyTableView->setModel(m_historyModel);
     ui->historyTableView->horizontalHeader()->setStretchLastSection(true);
 
-    // 连接网络管理器的信号
-    connect(m_networkManager, &NetworkManager::translationFinished,
-            this, &MainWindow::onTranslationFinished);
+    // 连接网络管理器的信号 - 确保连接成功
+    bool connected = connect(m_networkManager, &NetworkManager::translationFinished,
+                             this, &MainWindow::onTranslationFinished);
+
+    if (!connected) {
+        qDebug() << "警告：translationFinished信号连接失败！";
+    }
+
+    // 添加一个定时器备用，防止按钮永远禁用
+    QTimer* safetyTimer = new QTimer(this);
+    connect(safetyTimer, &QTimer::timeout, this, [this]() {
+        if (!ui->searchButton->isEnabled()) {
+            ui->searchButton->setEnabled(true);
+            ui->statusbar->showMessage("已自动恢复查询功能", 2000);
+        }
+    });
+    safetyTimer->start(10000);  // 10秒后自动恢复
 
     // 设置初始文本
     ui->resultTextEdit->setPlaceholderText("翻译结果将显示在这里...\n\n"
-                                           "支持功能：\n"
-                                           "1. 中英文互译\n"
-                                           "2. 自动检测语言\n"
-                                           "3. 历史记录保存\n"
-                                           "4. 收藏功能");
+                                           "当前使用模式：模拟翻译\n"
+                                           "（如需真实翻译，请配置API密钥）");
 
     // 设置状态栏
-    ui->statusbar->showMessage("就绪");
+    ui->statusbar->showMessage("就绪 - 模拟翻译模式");
 }
-
 MainWindow::~MainWindow()
 {
     delete ui;
@@ -85,24 +97,38 @@ void MainWindow::on_searchButton_clicked()
     ui->statusbar->showMessage("正在翻译: " + word);
     ui->searchButton->setEnabled(false);  // 禁用按钮防止重复点击
 
-    // 使用网络翻译（先使用模拟翻译测试）
+    // 修改这里：强制使用模拟翻译，避免API密钥问题
     QString translation = m_networkManager->translateMock(word, fromLang, toLang);
-    showTranslationResult(word, translation);
 
-    // 实际使用API时取消下面的注释
+    // 立即显示结果，不等待网络信号
+    showTranslationResult(word, translation);
+    ui->searchButton->setEnabled(true);  // 重新启用按钮
+
+    // 如果你想使用真实API，需要先配置密钥
+    // 暂时注释掉这行：
     // m_networkManager->translateBaidu(word, fromLang, toLang);
 }
 
 void MainWindow::onTranslationFinished(const QString& result, bool success, const QString& error)
 {
-    ui->searchButton->setEnabled(true);  // 重新启用按钮
+    // 确保按钮被重新启用
+    ui->searchButton->setEnabled(true);
 
     if (success) {
         showTranslationResult(m_currentQuery, result);
         ui->statusbar->showMessage("翻译完成", 3000);
     } else {
+        // 显示错误但不阻止后续查询
         showErrorMessage(error);
         ui->statusbar->showMessage("翻译失败: " + error, 5000);
+
+        // 错误时也使用模拟翻译作为后备
+        QString langDirection = ui->langComboBox->currentText();
+        QString fromLang = (langDirection == "中文 -> 英文") ? "zh" : "auto";
+        QString toLang = (langDirection == "中文 -> 英文") ? "en" : "zh";
+
+        QString mockTranslation = m_networkManager->translateMock(m_currentQuery, fromLang, toLang);
+        showTranslationResult(m_currentQuery, mockTranslation);
     }
 }
 
