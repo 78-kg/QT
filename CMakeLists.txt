@@ -1,40 +1,52 @@
-cmake_minimum_required(VERSION 3.19)
-project(QTget LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.16)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets)
+project(QTget VERSION 1.0.0 LANGUAGES CXX)
+
+# 设置C++标准
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 查找Qt包
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets Sql Network)
 
+# 启用自动处理moc、uic、rcc
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
 
-qt_standard_project_setup()
-
-qt_add_executable(QTget
-    WIN32 MACOSX_BUNDLE
+# 创建可执行文件
+add_executable(QTget
     main.cpp
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
-    DatabaseManager.h
     DatabaseManager.cpp
+    DatabaseManager.h
+    HistoryModel.cpp
     HistoryModel.h
+    NetworkManager.h
 )
 
-target_link_libraries(QTget
-    PRIVATE
-        Qt::Core
-        Qt::Widgets
+# 链接Qt库
+target_link_libraries(QTget PRIVATE
+    Qt6::Core
+    Qt6::Widgets
+    Qt6::Sql
+    Qt6::Network
 )
 
-include(GNUInstallDirs)
+# 设置包含目录
+target_include_directories(QTget PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
+# 删除这部分的Windows特定设置，或者改为下面的正确格式
+# if(WIN32)
+#     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
+# endif()
+
+# 可选的安装规则
 install(TARGETS QTget
-    BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    BUNDLE DESTINATION .
 )
-
-qt_generate_deploy_app_script(
-    TARGET QTget
-    OUTPUT_SCRIPT deploy_script
-    NO_UNSUPPORTED_PLATFORM_ERROR
-)
-install(SCRIPT ${deploy_script})
