@@ -97,16 +97,8 @@ void MainWindow::on_searchButton_clicked()
     ui->statusbar->showMessage("正在翻译: " + word);
     ui->searchButton->setEnabled(false);  // 禁用按钮防止重复点击
 
-    // 修改这里：强制使用模拟翻译，避免API密钥问题
-    QString translation = m_networkManager->translateMock(word, fromLang, toLang);
 
-    // 立即显示结果，不等待网络信号
-    showTranslationResult(word, translation);
-    ui->searchButton->setEnabled(true);  // 重新启用按钮
-
-    // 如果你想使用真实API，需要先配置密钥
-    // 暂时注释掉这行：
-    // m_networkManager->translateBaidu(word, fromLang, toLang);
+    m_networkManager->translateBaidu(word, fromLang, toLang);
 }
 
 void MainWindow::onTranslationFinished(const QString& result, bool success, const QString& error)

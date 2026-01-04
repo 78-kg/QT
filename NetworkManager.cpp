@@ -25,27 +25,32 @@ NetworkManager::NetworkManager(QObject *parent)
 
 void NetworkManager::initKeys()
 {
-    // 这里初始化API密钥（实际使用时从配置文件读取）
-    // 百度翻译API（需要自己去百度翻译开放平台注册）
-    m_baiduAppId = "";         // 你的百度App ID
-    m_baiduSecretKey = "";     // 你的百度密钥
-
-    // 有道翻译API（需要去有道智云注册）
-    m_youdaoAppKey = "";       // 你的有道App Key
-    m_youdaoAppSecret = "";    // 你的有道App Secret
-
-    qDebug() << "NetworkManager initialized. API keys loaded.";
+    // 填入你的真实API密钥
+    m_baiduAppId = "20260104002532859";  // 你的百度App ID
+    m_baiduSecretKey = "kFnYilHeW0sp6p9Lcovj";  // 你的百度密钥
+    qDebug() << "API密钥已加载，启用百度翻译";
 }
 
 void NetworkManager::translateBaidu(const QString& text, const QString& from, const QString& to)
 {
+    qDebug() << "=== 开始百度翻译调用 ===";
+    qDebug() << "查询文本:" << text;
+    qDebug() << "源语言:" << from;
+    qDebug() << "目标语言:" << to;
+    qDebug() << "App ID:" << m_baiduAppId;
+
     if (m_baiduAppId.isEmpty() || m_baiduSecretKey.isEmpty()) {
-        emit translationFinished("请配置百度翻译API密钥", false, "API密钥未配置");
+        qDebug() << "错误：API密钥为空，使用模拟翻译";
+        QString mockResult = translateMock(text, from, to);
+        emit translationFinished(mockResult, true, "模拟翻译模式");
         return;
     }
 
     qint64 salt = QRandomGenerator::global()->generate();
     QString sign = generateBaiduSign(text, salt);
+
+    qDebug() << "生成salt:" << salt;
+    qDebug() << "生成sign:" << sign;
 
     QUrl url("https://fanyi-api.baidu.com/api/trans/vip/translate");
     QUrlQuery query;
@@ -58,6 +63,8 @@ void NetworkManager::translateBaidu(const QString& text, const QString& from, co
 
     url.setQuery(query);
 
+    qDebug() << "请求URL:" << url.toString(QUrl::RemoveUserInfo);
+
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
 
@@ -65,36 +72,53 @@ void NetworkManager::translateBaidu(const QString& text, const QString& from, co
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         onBaiduReplyFinished(reply);
     });
+
+    qDebug() << "网络请求已发送";
 }
 
 void NetworkManager::onBaiduReplyFinished(QNetworkReply* reply)
 {
-    reply->deleteLater();
+    qDebug() << "=== 收到百度API响应 ===";
 
     if (reply->error() != QNetworkReply::NoError) {
+        qDebug() << "网络错误:" << reply->errorString();
         emit translationFinished("", false, "网络错误: " + reply->errorString());
+        reply->deleteLater();
         return;
     }
 
     QByteArray data = reply->readAll();
+    QString responseStr = QString::fromUtf8(data);
+
+    qDebug() << "API响应数据:" << responseStr;
+    qDebug() << "响应状态码:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
     QJsonDocument doc = QJsonDocument::fromJson(data);
 
     if (!doc.isObject()) {
+        qDebug() << "错误：API返回的不是有效的JSON对象";
         emit translationFinished("", false, "API返回格式错误");
+        reply->deleteLater();
         return;
     }
 
     QJsonObject obj = doc.object();
 
+    // 检查错误码
     if (obj.contains("error_code")) {
         int errorCode = obj["error_code"].toInt();
         QString errorMsg = obj["error_msg"].toString();
+        qDebug() << "API返回错误码:" << errorCode << "错误信息:" << errorMsg;
         emit translationFinished("", false, QString("API错误 %1: %2").arg(errorCode).arg(errorMsg));
+        reply->deleteLater();
         return;
     }
 
     if (!obj.contains("trans_result")) {
+        qDebug() << "错误：API响应缺少trans_result字段";
+        qDebug() << "完整响应:" << obj;
         emit translationFinished("", false, "API返回数据格式错误");
+        reply->deleteLater();
         return;
     }
 
@@ -103,14 +127,21 @@ void NetworkManager::onBaiduReplyFinished(QNetworkReply* reply)
 
     for (const auto& item : transResult) {
         QJsonObject transObj = item.toObject();
-        result += transObj["dst"].toString() + "\n";
+        QString src = transObj["src"].toString();
+        QString dst = transObj["dst"].toString();
+        qDebug() << "原文:" << src << "-> 译文:" << dst;
+        result += dst + "\n";
     }
 
     if (!result.isEmpty()) {
+        qDebug() << "翻译成功，结果:" << result.trimmed();
         emit translationFinished(result.trimmed(), true);
     } else {
+        qDebug() << "错误：翻译结果为空";
         emit translationFinished("", false, "翻译结果为空");
     }
+
+    reply->deleteLater();
 }
 
 QString NetworkManager::generateBaiduSign(const QString& query, qint64 salt)
