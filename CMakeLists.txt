@@ -26,6 +26,8 @@ add_executable(QTget
     HistoryModel.h
     NetworkManager.h
     NetworkManager.cpp
+    WordStatisticsModel.h
+    WordStatisticsModel.cpp
 )
 
 # 链接Qt库

@@ -6,34 +6,46 @@
 #include <QDateTime>
 #include <QTimer>  // 添加这行！必须包含QTimer头文件
 #include <QTextCursor>
+#include <QShortcut>        // 添加这行
+#include <QStandardPaths>
+#include "mainwindow.h"
+#include "ui_mainwindow.h"
+#include "DatabaseManager.h"
+#include <QTimer>
+#include <QDebug>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , m_historyModel(new HistoryModel(this))
     , m_networkManager(new NetworkManager(this))
+    , m_wordStatsModel(new WordStatisticsModel(this))  // 确保这行存在且正确
 {
     ui->setupUi(this);
 
-    // 初始化
-    this->setWindowTitle("智能词典工具 v1.0");
-
-    // 初始化数据库
+    // 基本初始化
+    this->setWindowTitle("智能词典工具 v2.0");
     initDatabase();
 
     // 设置历史表格
     ui->historyTableView->setModel(m_historyModel);
     ui->historyTableView->horizontalHeader()->setStretchLastSection(true);
+    ui->historyTableView->setSelectionBehavior(QAbstractItemView::SelectRows);
 
-    // 连接网络管理器的信号 - 确保连接成功
-    bool connected = connect(m_networkManager, &NetworkManager::translationFinished,
-                             this, &MainWindow::onTranslationFinished);
-
-    if (!connected) {
-        qDebug() << "警告：translationFinished信号连接失败！";
+    // 设置常用词汇表格
+    if (m_wordStatsModel) {
+        ui->wordStatisticsTableView->setModel(m_wordStatsModel);
+        ui->wordStatisticsTableView->horizontalHeader()->setStretchLastSection(true);
+        ui->wordStatisticsTableView->setSelectionBehavior(QAbstractItemView::SelectRows);
+        ui->wordStatisticsTableView->setAlternatingRowColors(true);
     }
 
-    // 添加一个定时器备用，防止按钮永远禁用
+    // 连接网络管理器
+    connect(m_networkManager, &NetworkManager::translationFinished,
+            this, &MainWindow::onTranslationFinished);
+
+    // 安全定时器
     QTimer* safetyTimer = new QTimer(this);
     connect(safetyTimer, &QTimer::timeout, this, [this]() {
         if (!ui->searchButton->isEnabled()) {
@@ -41,15 +53,21 @@ MainWindow::MainWindow(QWidget *parent)
             ui->statusbar->showMessage("已自动恢复查询功能", 2000);
         }
     });
-    safetyTimer->start(10000);  // 10秒后自动恢复
+    safetyTimer->start(10000);
 
     // 设置初始文本
-    ui->resultTextEdit->setPlaceholderText("翻译结果将显示在这里...\n\n"
-                                           "当前使用模式：模拟翻译\n"
-                                           "（如需真实翻译，请配置API密钥）");
+    ui->resultTextEdit->setPlaceholderText("翻译结果将显示在这里...");
+    ui->statusbar->showMessage("就绪");
 
-    // 设置状态栏
-    ui->statusbar->showMessage("就绪 - 模拟翻译模式");
+    // 设置焦点
+    ui->queryLineEdit->setFocus();
+
+    // 初始自动更新统计
+    QTimer::singleShot(100, this, [this]() {
+        if (m_wordStatsModel) {
+            m_wordStatsModel->updateData();
+        }
+    });
 }
 MainWindow::~MainWindow()
 {
@@ -374,5 +392,75 @@ void MainWindow::on_clearHistoryButton_clicked()
     if (reply == QMessageBox::Yes) {
         m_historyModel->clearHistory();
         ui->statusbar->showMessage("历史记录已清空", 3000);
+    }
+}
+
+// 修改刷新统计按钮的功能
+void MainWindow::on_updateStatsButton_clicked()
+{
+    // 1. 从历史记录中重新统计常用词汇
+    ui->statusbar->showMessage("正在统计常用词汇...", 2000);
+
+    // 2. 获取所有历史记录
+    QList<QStringList> allHistory = DatabaseManager::instance().getHistory(1000); // 获取1000条记录
+
+    // 3. 清空现有统计
+    DatabaseManager::instance().clearWordStatistics();
+
+    // 4. 重新统计
+    int countedWords = 0;
+    for (const QStringList& record : allHistory) {
+        if (record.size() > 1) {  // 确保有查询内容
+            QString word = record[1];  // 查询内容
+            if (!word.trimmed().isEmpty()) {
+                DatabaseManager::instance().incrementWordCount(word);
+                countedWords++;
+            }
+        }
+    }
+
+    // 5. 刷新显示
+    if (m_wordStatsModel) {
+        m_wordStatsModel->updateData();
+
+        int resultCount = m_wordStatsModel->rowCount();
+        if (resultCount > 0) {
+            ui->statusbar->showMessage(
+                QString("统计完成！共统计 %1 条历史记录，发现 %2 个常用词汇").arg(countedWords).arg(resultCount),
+                5000
+                );
+        } else {
+            ui->statusbar->showMessage("统计完成，但未找到常用词汇", 3000);
+        }
+    }
+}
+
+// 清空统计按钮点击事件
+void MainWindow::on_clearStatsButton_clicked()
+{
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(
+        this,
+        "清空词汇统计",
+        "确定要清空所有词汇统计吗？\n"
+        "这将删除所有单词的查询次数记录，操作不可恢复！",
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No  // 默认选择"否"
+        );
+
+    if (reply == QMessageBox::Yes) {
+        if (DatabaseManager::instance().clearWordStatistics()) {
+            // 刷新统计显示
+            if (m_wordStatsModel) {
+                m_wordStatsModel->updateData();
+            }
+
+            ui->statusbar->showMessage("词汇统计已清空", 3000);
+            qDebug() << "词汇统计已清空";
+        } else {
+            QMessageBox::warning(this, "错误", "清空统计失败，请检查数据库连接");
+        }
+    } else {
+        ui->statusbar->showMessage("已取消清空操作", 2000);
     }
 }

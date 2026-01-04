@@ -47,43 +47,6 @@ bool DatabaseManager::initDatabase()
     return createTables();
 }
 
-bool DatabaseManager::createTables()
-{
-    QSqlQuery query;
-
-    // 创建历史记录表
-    QString createHistoryTable =
-        "CREATE TABLE IF NOT EXISTS history ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "query_text TEXT NOT NULL, "
-        "translation TEXT NOT NULL, "
-        "source_lang TEXT, "
-        "target_lang TEXT, "
-        "query_time DATETIME DEFAULT CURRENT_TIMESTAMP"
-        ")";
-
-    if (!query.exec(createHistoryTable)) {
-        qDebug() << "Failed to create history table:" << query.lastError().text();
-        return false;
-    }
-
-    // 创建收藏表
-    QString createFavoriteTable =
-        "CREATE TABLE IF NOT EXISTS favorites ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "word TEXT NOT NULL UNIQUE, "
-        "translation TEXT NOT NULL, "
-        "add_time DATETIME DEFAULT CURRENT_TIMESTAMP, "
-        "notes TEXT"
-        ")";
-
-    if (!query.exec(createFavoriteTable)) {
-        qDebug() << "Failed to create favorites table:" << query.lastError().text();
-        return false;
-    }
-
-    return true;
-}
 
 bool DatabaseManager::addHistory(const QString& query, const QString& translation,
                                  const QString& sourceLang, const QString& targetLang)
@@ -200,4 +163,148 @@ bool DatabaseManager::isFavorite(const QString& word)
     }
 
     return false;
+}
+
+
+bool DatabaseManager::createTables()
+{
+    QSqlQuery query;
+
+    // 1. 创建历史记录表
+    QString createHistoryTable =
+        "CREATE TABLE IF NOT EXISTS history ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "query_text TEXT NOT NULL, "
+        "translation TEXT NOT NULL, "
+        "source_lang TEXT, "
+        "target_lang TEXT, "
+        "query_time DATETIME DEFAULT CURRENT_TIMESTAMP"
+        ")";
+
+    if (!query.exec(createHistoryTable)) {
+        qDebug() << "Failed to create history table:" << query.lastError().text();
+        return false;
+    }
+
+    // 2. 创建收藏表
+    QString createFavoriteTable =
+        "CREATE TABLE IF NOT EXISTS favorites ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "word TEXT NOT NULL UNIQUE, "
+        "translation TEXT NOT NULL, "
+        "add_time DATETIME DEFAULT CURRENT_TIMESTAMP, "
+        "notes TEXT"
+        ")";
+
+    if (!query.exec(createFavoriteTable)) {
+        qDebug() << "Failed to create favorites table:" << query.lastError().text();
+        return false;
+    }
+
+    // 3. 新增：创建单词统计表
+    return createStatisticsTable();
+}
+
+// 新增：创建单词统计表
+bool DatabaseManager::createStatisticsTable()
+{
+    QSqlQuery query;
+
+    QString createStatisticsTable =
+        "CREATE TABLE IF NOT EXISTS word_statistics ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "word TEXT NOT NULL UNIQUE, "
+        "count INTEGER DEFAULT 1, "
+        "last_query_time DATETIME DEFAULT CURRENT_TIMESTAMP"
+        ")";
+
+    if (!query.exec(createStatisticsTable)) {
+        qDebug() << "Failed to create statistics table:" << query.lastError().text();
+        return false;
+    }
+
+    return true;
+}
+
+// 新增：增加单词查询次数
+void DatabaseManager::incrementWordCount(const QString& word)
+{
+    if (word.trimmed().isEmpty()) {
+        return;
+    }
+
+    QString cleanWord = word.trimmed().toLower();  // 转换为小写，统一统计
+
+    QSqlQuery query;
+
+    // 使用INSERT OR REPLACE来更新或插入
+    query.prepare(
+        "INSERT OR REPLACE INTO word_statistics (word, count, last_query_time) "
+        "VALUES (?, "
+        "COALESCE((SELECT count FROM word_statistics WHERE word = ?), 0) + 1, "
+        "CURRENT_TIMESTAMP)"
+        );
+    query.addBindValue(cleanWord);
+    query.addBindValue(cleanWord);
+
+    if (!query.exec()) {
+        qDebug() << "Failed to update word count:" << query.lastError().text();
+    } else {
+        qDebug() << "增加单词统计:" << cleanWord;
+    }
+}
+
+// 新增：获取单词查询次数
+int DatabaseManager::getWordCount(const QString& word)
+{
+    QString cleanWord = word.trimmed().toLower();
+
+    QSqlQuery query;
+    query.prepare("SELECT count FROM word_statistics WHERE word = ?");
+    query.addBindValue(cleanWord);
+
+    if (query.exec() && query.next()) {
+        return query.value(0).toInt();
+    }
+
+    return 0;
+}
+
+// 新增：获取常用词排名
+QList<QPair<QString, int>> DatabaseManager::getTopWords(int limit)
+{
+    QList<QPair<QString, int>> topWords;
+
+    QSqlQuery query;
+    query.prepare(
+        "SELECT word, count FROM word_statistics "
+        "ORDER BY count DESC, last_query_time DESC "
+        "LIMIT ?"
+        );
+    query.addBindValue(limit);
+
+    if (query.exec()) {
+        while (query.next()) {
+            QString word = query.value(0).toString();
+            int count = query.value(1).toInt();
+            topWords.append(qMakePair(word, count));
+        }
+    } else {
+        qDebug() << "Failed to get top words:" << query.lastError().text();
+    }
+
+    return topWords;
+}
+
+// 新增：清空单词统计
+bool DatabaseManager::clearWordStatistics()
+{
+    QSqlQuery query("DELETE FROM word_statistics");
+    if (query.exec()) {
+        qDebug() << "单词统计已清空";
+        return true;
+    } else {
+        qDebug() << "Failed to clear word statistics:" << query.lastError().text();
+        return false;
+    }
 }

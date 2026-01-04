@@ -3,7 +3,8 @@
 
 #include <QMainWindow>
 #include "HistoryModel.h"
-#include "NetworkManager.h"  // 添加网络管理器
+#include "NetworkManager.h"
+#include "WordStatisticsModel.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -31,6 +32,9 @@ private slots:
     void on_searchHistoryLineEdit_returnPressed();  // 确保这行存在！
     void on_clearHistoryButton_clicked();
 
+    void on_updateStatsButton_clicked();
+    void on_clearStatsButton_clicked();
+
 private:
     Ui::MainWindow *ui;
     HistoryModel *m_historyModel;
@@ -39,6 +43,7 @@ private:
     QString m_currentFromLang;  // 添加这两个
     QString m_currentToLang;
     QString m_displayDirection;
+    WordStatisticsModel *m_wordStatsModel;
 
     bool isChineseText(const QString& text);
     double getChineseCharacterRatio(const QString& text);
