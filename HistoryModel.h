@@ -1,0 +1,4 @@
+#ifndef HISTORYMODEL_H
+#define HISTORYMODEL_H
+
+#endif // HISTORYMODEL_H
