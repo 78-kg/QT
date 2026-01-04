@@ -25,6 +25,7 @@ add_executable(QTget
     HistoryModel.cpp
     HistoryModel.h
     NetworkManager.h
+    NetworkManager.cpp
 )
 
 # 链接Qt库
