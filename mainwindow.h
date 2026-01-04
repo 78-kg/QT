@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include "HistoryModel.h"
+#include "NetworkManager.h"  // 添加网络管理器
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -19,13 +20,22 @@ public:
 private slots:
     void on_searchButton_clicked();
     void on_clearButton_clicked();
-    void on_historyButton_clicked();  // 你新增的查询历史按钮
+    void on_historyButton_clicked();
+    void on_favoriteButton_clicked();  // 收藏按钮
     void on_langComboBox_currentIndexChanged(int index);
+
+    // 新增：翻译结果返回的槽函数
+    void onTranslationFinished(const QString& result, bool success, const QString& error);
 
 private:
     Ui::MainWindow *ui;
-    HistoryModel *m_historyModel;  // 历史数据模型
-    void initDatabase();  // 初始化数据库
-    void updateHistoryView();  // 更新历史显示
+    HistoryModel *m_historyModel;
+    NetworkManager *m_networkManager;  // 网络管理器
+    QString m_currentQuery;  // 当前查询的词
+
+    void initDatabase();
+    void updateHistoryView();
+    void showTranslationResult(const QString& query, const QString& translation);
+    void showErrorMessage(const QString& error);
 };
 #endif // MAINWINDOW_H
