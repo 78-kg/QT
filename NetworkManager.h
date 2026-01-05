@@ -21,9 +21,14 @@ public:
     // 模拟翻译（无网络时使用）
     QString translateMock(const QString& text, const QString& from, const QString& to);
 
+    void getExampleSentences(const QString& word, const QString& fromLang, const QString& toLang);
+    void onExampleReplyFinished(QNetworkReply* reply);
+
 signals:
     void translationFinished(const QString& result, bool success, const QString& error = "");
     void networkError(const QString& error);
+    void exampleSentencesReceived(const QStringList& examples, bool success, const QString& error = "");
+
 
 private slots:
     void onBaiduReplyFinished(QNetworkReply* reply);
@@ -38,6 +43,10 @@ private:
     void initKeys();  // 初始化API密钥
     QString generateBaiduSign(const QString& query, qint64 salt);
     QString generateYoudaoSign(const QString& query, qint64 salt);
+
+    void onBaiduExampleReplyFinished(QNetworkReply* reply, const QString& originalWord);
+    QStringList generateBaiduBasedExamples(const QString& word, const QStringList& translations);
+    QStringList generateIntelligentExamples(const QString& word);
 };
 
 #endif // NETWORKMANAGER_H

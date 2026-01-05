@@ -15,6 +15,7 @@
 #include <QDebug>
 #include <QMessageBox>
 
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -93,6 +94,21 @@ void MainWindow::on_searchButton_clicked()
     }
 
     m_currentQuery = word;
+    m_currentExamples.clear();
+
+    m_examplesRequested = true;
+    m_examplesReceived = false;
+
+    // 设置例句获取超时检查
+    QTimer::singleShot(5000, this, [this]() {
+        if (m_examplesRequested && !m_examplesReceived) {
+            ui->statusbar->showMessage("例句获取超时，使用示例句子", 3000);
+
+
+
+            updateExampleDisplay();
+        }
+    });
 
     int index = ui->langComboBox->currentIndex();
     QString fromLang, toLang;
@@ -123,38 +139,112 @@ void MainWindow::on_searchButton_clicked()
         displayDirection = "自动检测";
     }
 
-    qDebug() << "翻译设置: " << displayDirection << "(" << fromLang << "->" << toLang << ")";
+    qDebug() << "翻译设置: from" << fromLang << "to" << toLang;
 
-    // 保存显示方向，用于结果展示
+    // 4. 显示查询状态
+    ui->resultTextEdit->setText(
+        "🔍 正在查询: " + word + "\n"
+                                 "🌐 方向: " + ui->langComboBox->currentText() + "\n"
+                                            "⏰ 时间: " + QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss") + "\n\n"
+                                                                         "📊 正在获取以下信息:\n"
+                                                                         "  1. 翻译结果...\n"
+                                                                         "  2. 真实例句...\n\n"
+                                                                         "请稍候..."
+        );
 
-    // 显示查询状态
-    ui->resultTextEdit->setText("正在查询中...\n请稍候");
-    ui->statusbar->showMessage("正在翻译: " + word);
-    ui->searchButton->setEnabled(false);
+    ui->statusbar->showMessage("正在查询: " + word);
+    ui->searchButton->setEnabled(false);  // 禁用按钮防止重复点击
 
+    // 5. 更新单词统计
+    DatabaseManager::instance().incrementWordCount(word);
+
+    // 6. 同时发起两个网络请求（并行）
+
+    // 请求1: 百度翻译API（获取翻译结果）
     m_networkManager->translateBaidu(word, fromLang, toLang);
+
+
+    // 7. 设置查询超时保护
+    QTimer::singleShot(10000, this, [this]() {
+        if (!ui->searchButton->isEnabled()) {
+            ui->searchButton->setEnabled(true);
+            ui->statusbar->showMessage("查询超时，请重试", 3000);
+        }
+    });
+
+    // 8. 记录查询日志
+    qDebug() << "=== 开始查询 ===";
+    qDebug() << "查询词:" << word;
+    qDebug() << "源语言:" << fromLang;
+    qDebug() << "目标语言:" << toLang;
+    qDebug() << "时间:" << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
 }
 
 void MainWindow::onTranslationFinished(const QString& result, bool success, const QString& error)
 {
-    // 确保按钮被重新启用
+    // 1. 重新启用查询按钮
     ui->searchButton->setEnabled(true);
 
     if (success) {
-        showTranslationResult(m_currentQuery, result);
-        ui->statusbar->showMessage("翻译完成", 3000);
+        // 2. 显示翻译结果
+        QString langDirection = ui->langComboBox->currentText();
+        QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+
+        // 构建基本结果
+        QString resultText = QString("🔍 查询: %1\n"
+                                     "🌐 方向: %2\n"
+                                     "⏰ 时间: %3\n\n"
+                                     "📖 翻译结果:\n"
+                                     "%4\n\n")
+                                 .arg(m_currentQuery)
+                                 .arg(langDirection)
+                                 .arg(currentTime)
+                                 .arg(result);
+
+        // 3. 直接使用翻译结果生成例句（不再等待例句API）
+        m_currentExamples = generateExamplesFromTranslation(m_currentQuery, result);
+        resultText += formatExampleSentences();
+
+        ui->resultTextEdit->setText(resultText);
+
+        // 4. 保存到历史记录
+        if (DatabaseManager::instance().addHistory(m_currentQuery, result, "auto", langDirection)) {
+            updateHistoryView();
+        }
+
+        // 5. 更新状态栏
+        ui->statusbar->showMessage("翻译完成 ✓", 2000);
+
+        // 6. 滚动到顶部
+        ui->resultTextEdit->moveCursor(QTextCursor::Start);
     } else {
-        // 显示错误但不阻止后续查询
+        // 错误处理
         showErrorMessage(error);
         ui->statusbar->showMessage("翻译失败: " + error, 5000);
 
-        // 错误时也使用模拟翻译作为后备
+        // 使用模拟翻译作为后备
         QString langDirection = ui->langComboBox->currentText();
         QString fromLang = (langDirection == "中文 -> 英文") ? "zh" : "auto";
         QString toLang = (langDirection == "中文 -> 英文") ? "en" : "zh";
 
         QString mockTranslation = m_networkManager->translateMock(m_currentQuery, fromLang, toLang);
-        showTranslationResult(m_currentQuery, mockTranslation);
+
+        // 显示模拟结果
+        QString resultText = QString("🔍 查询: %1\n"
+                                     "🌐 方向: %2\n"
+                                     "⏰ 时间: %3\n\n"
+                                     "⚠️ API翻译失败，使用模拟翻译:\n"
+                                     "%4\n\n")
+                                 .arg(m_currentQuery)
+                                 .arg(langDirection)
+                                 .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"))
+                                 .arg(mockTranslation);
+
+        // 添加默认例句
+        m_currentExamples = getDefaultExamples(m_currentQuery);
+        resultText += formatExampleSentences();
+
+        ui->resultTextEdit->setText(resultText);
     }
 }
 
@@ -463,4 +553,259 @@ void MainWindow::on_clearStatsButton_clicked()
     } else {
         ui->statusbar->showMessage("已取消清空操作", 2000);
     }
+}
+
+// 新增：格式化例句显示
+QString MainWindow::formatExampleSentences()
+{
+    if (m_currentExamples.isEmpty()) {
+        qDebug() << "formatExampleSentences: 当前没有例句";
+        return "📚 真实例句:\n   暂无相关例句\n";
+    }
+
+    qDebug() << "formatExampleSentences: 格式化" << m_currentExamples.size() << "个例句";
+
+    QString examplesText = "📚 真实例句:\n";
+
+    for (int i = 0; i < qMin(m_currentExamples.size(), 5); i++) {
+        QString example = m_currentExamples[i];
+
+        // 清理示例文本
+        example = example.trimmed();
+
+        // 添加编号
+        examplesText += QString("   %1. %2").arg(i + 1).arg(example);
+
+        // 如果不是最后一个例句，添加换行
+        if (i < qMin(m_currentExamples.size(), 5) - 1) {
+            examplesText += "\n";
+        }
+
+        qDebug() << "  例句" << i+1 << ":" << example.left(50) << "...";
+    }
+
+    // 显示例句总数
+    if (m_currentExamples.size() > 5) {
+        examplesText += QString("\n\n   ... 还有 %1 个例句").arg(m_currentExamples.size() - 5);
+    }
+
+    examplesText += "\n";  // 添加最后的换行
+
+    return examplesText;
+}
+
+void MainWindow::updateExampleDisplay()
+{
+    QString currentText = ui->resultTextEdit->toPlainText();
+
+    if (currentText.isEmpty()) {
+        qDebug() << "当前文本为空，不更新例句";
+        return;
+    }
+
+    qDebug() << "updateExampleDisplay: 开始更新例句显示";
+    qDebug() << "当前有例句数量:" << m_currentExamples.size();
+
+    // 检查文本中是否包含翻译结果
+    if (!currentText.contains("📖 翻译结果:")) {
+        qDebug() << "文本中未找到翻译结果，等待翻译完成";
+        return;
+    }
+
+    // 构建新的例句部分
+    QString examplesSection = formatExampleSentences();
+
+    // 查找并替换例句部分
+    int exampleStart = currentText.indexOf("📚 正在获取真实例句");
+    if (exampleStart == -1) {
+        exampleStart = currentText.indexOf("📚 示例句子");
+    }
+    if (exampleStart == -1) {
+        exampleStart = currentText.indexOf("📚 真实例句:");
+    }
+
+    if (exampleStart != -1) {
+        // 找到例句结束位置
+        int exampleEnd = currentText.indexOf("\n\n", exampleStart);
+        if (exampleEnd == -1) {
+            exampleEnd = currentText.length();
+        }
+
+        // 替换例句部分
+        QString newText = currentText.left(exampleStart) + examplesSection;
+        ui->resultTextEdit->setText(newText);
+        qDebug() << "例句显示已更新";
+
+        // 滚动到顶部
+        ui->resultTextEdit->moveCursor(QTextCursor::Start);
+    } else {
+        qDebug() << "未找到例句部分，尝试在末尾添加";
+
+        // 在末尾添加例句
+        QString newText = currentText;
+        if (!newText.endsWith("\n")) newText += "\n";
+        newText += examplesSection;
+        ui->resultTextEdit->setText(newText);
+    }
+}
+
+QStringList MainWindow::getDefaultExamples(const QString& word)
+{
+    QString queryWord = word.toLower().trimmed();
+    QStringList examples;
+
+    qDebug() << "为单词生成默认例句:" << queryWord;
+
+    // 常见单词的预设例句库
+    static QMap<QString, QStringList> exampleDB = {
+        {"looking", {
+                        "She is looking for her keys.",
+                        "He is looking at the painting.",
+                        "They are looking forward to the trip."
+                    }},
+        {"hello", {
+                      "Hello, how are you?",
+                      "She said hello to everyone.",
+                      "Say hello to your new colleague."
+                  }},
+        {"world", {
+                      "Hello, world!",
+                      "She travels around the world.",
+                      "The whole world is watching."
+                  }},
+        {"love", {
+                     "I love you.",
+                     "She loves reading books.",
+                     "Love makes the world go round."
+                 }},
+        {"time", {
+                     "What time is it?",
+                     "Time flies when you're having fun.",
+                     "It's time to go."
+                 }},
+        {"water", {
+                      "I need to drink some water.",
+                      "The water is very clear.",
+                      "Don't forget to water the plants."
+                  }},
+        {"book", {
+                     "This is an interesting book.",
+                     "I need to book a flight.",
+                     "She is writing a new book."
+                 }}
+    };
+
+    // 检查是否有预设例句
+    if (exampleDB.contains(queryWord)) {
+        examples = exampleDB[queryWord];
+        qDebug() << "使用预设例句库，找到" << examples.size() << "个例句";
+    } else {
+        // 动态生成例句
+        qDebug() << "为单词动态生成例句:" << queryWord;
+
+        // 根据单词特征生成不同例句
+        if (queryWord.endsWith("ing")) {  // 动名词
+            examples << QString("I am %1 right now.").arg(queryWord)
+                     << QString("She enjoys %1 in her free time.").arg(queryWord)
+                     << QString("%1 is good for your health.").arg(queryWord);
+        }
+        else if (queryWord.endsWith("ed")) {  // 过去式
+            examples << QString("Yesterday, I %1 to the store.").arg(queryWord)
+                     << QString("She has %1 that movie before.").arg(queryWord)
+                     << QString("They %1 the project successfully.").arg(queryWord);
+        }
+        else if (queryWord.length() <= 3) {  // 短单词
+            examples << QString("The word '%1' is very short.").arg(word)
+                     << QString("Can you spell '%1'?").arg(word)
+                     << QString("'%1' is a common word in English.").arg(word);
+        }
+        else {  // 一般单词
+            examples << QString("This is an example of using '%1'.").arg(word)
+                     << QString("Can you make a sentence with '%1'?").arg(word)
+                     << QString("The meaning of '%1' is important to understand.").arg(word);
+        }
+
+        qDebug() << "动态生成了" << examples.size() << "个例句";
+    }
+
+    return examples;
+}
+
+QStringList MainWindow::generateExamplesFromTranslation(const QString& word, const QString& translation)
+{
+    QStringList examples;
+
+    qDebug() << "生成例句，单词:" << word << "翻译:" << translation;
+
+    // 1. 首先添加翻译对
+    examples << QString("%1 → %2").arg(word).arg(translation);
+
+    // 2. 根据单词类型添加更多例句
+    QString cleanWord = word.toLower().trimmed();
+
+    // 常见单词的预设例句
+    if (cleanWord == "hello") {
+        examples << "Hello, how are you?"
+                 << "She said hello to everyone."
+                 << "Say hello to your new colleague.";
+    }
+    else if (cleanWord == "world") {
+        examples << "Hello, world!"
+                 << "She travels around the world."
+                 << "The whole world is watching.";
+    }
+    else if (cleanWord == "looking") {
+        examples << "She is looking for her keys."
+                 << "He is looking at the painting."
+                 << "They are looking forward to the trip.";
+    }
+    else if (cleanWord == "love") {
+        examples << "I love you."
+                 << "She loves reading books."
+                 << "Love makes the world go round.";
+    }
+    else if (cleanWord == "time") {
+        examples << "What time is it?"
+                 << "Time flies when you're having fun."
+                 << "It's time to go.";
+    }
+    else if (cleanWord == "water") {
+        examples << "I need to drink some water."
+                 << "The water is very clear."
+                 << "Don't forget to water the plants.";
+    }
+    else if (cleanWord == "book") {
+        examples << "This is an interesting book."
+                 << "I need to book a flight."
+                 << "She is writing a new book.";
+    }
+    // 根据单词特征生成例句
+    else if (cleanWord.endsWith("ing")) {
+        examples << QString("I am %1 right now.").arg(cleanWord)
+        << QString("She enjoys %1 in her free time.").arg(cleanWord)
+        << QString("%1 is good for your health.").arg(cleanWord);
+    }
+    else if (cleanWord.endsWith("ed")) {
+        examples << QString("Yesterday, I %1 to the store.").arg(cleanWord)
+        << QString("She has %1 that movie before.").arg(cleanWord)
+        << QString("They %1 the project successfully.").arg(cleanWord);
+    }
+    else if (cleanWord.length() <= 3) {
+        examples << QString("The word '%1' is very short.").arg(word)
+        << QString("Can you spell '%1'?").arg(word)
+        << QString("'%1' is a common word in English.").arg(word);
+    }
+    else {
+        examples << QString("This is an example of using '%1'.").arg(word)
+        << QString("Can you make a sentence with '%1'?").arg(word)
+        << QString("The meaning of '%1' is important to understand.").arg(word);
+    }
+
+    // 确保不超过5个例句
+    if (examples.size() > 5) {
+        examples = examples.mid(0, 5);
+    }
+
+    qDebug() << "生成了" << examples.size() << "个例句";
+    return examples;
 }

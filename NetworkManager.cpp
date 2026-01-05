@@ -177,3 +177,4 @@ QString NetworkManager::translateMock(const QString& text, const QString& from, 
         return QString("Translation from %1 to %2: %3").arg(from).arg(to).arg(text);
     }
 }
+

@@ -34,6 +34,8 @@ private slots:
 
     void on_updateStatsButton_clicked();
     void on_clearStatsButton_clicked();
+    void onExampleSentencesReceived(const QStringList& examples, bool success, const QString& error);
+
 
 private:
     Ui::MainWindow *ui;
@@ -45,6 +47,13 @@ private:
     QString m_displayDirection;
     WordStatisticsModel *m_wordStatsModel;
 
+
+    QStringList m_currentExamples;  // 当前查询词的例句
+
+    QString formatExampleSentences();  // 添加这行！
+
+    void updateExampleDisplay();    // 更新例句显示
+
     bool isChineseText(const QString& text);
     double getChineseCharacterRatio(const QString& text);
 
@@ -52,5 +61,13 @@ private:
     void updateHistoryView();
     void showTranslationResult(const QString& query, const QString& translation);
     void showErrorMessage(const QString& error);
+
+    bool m_examplesRequested = false;
+    bool m_examplesReceived = false;
+
+    QStringList generateExamplesFromTranslation(const QString& word, const QString& translation);
+
+    QStringList getDefaultExamples(const QString& word);  // 获取默认例句
+
 };
 #endif // MAINWINDOW_H
