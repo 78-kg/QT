@@ -29,6 +29,11 @@ MainWindow::MainWindow(QWidget *parent)
     this->setWindowTitle("智能词典工具 v2.0");
     initDatabase();
 
+    ui->searchHistoryLineEdit->setPlaceholderText("搜索历史记录");
+
+    connect(ui->queryLineEdit, &QLineEdit::returnPressed,
+            this, &MainWindow::on_searchButton_clicked);
+
     // 设置历史表格
     ui->historyTableView->setModel(m_historyModel);
     ui->historyTableView->horizontalHeader()->setStretchLastSection(true);
@@ -59,6 +64,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 设置初始文本
     ui->resultTextEdit->setPlaceholderText("翻译结果将显示在这里...");
     ui->statusbar->showMessage("就绪");
+    ui->searchHistoryLineEdit->clear();
 
     // 设置焦点
     ui->queryLineEdit->setFocus();
