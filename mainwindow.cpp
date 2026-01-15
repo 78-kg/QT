@@ -815,3 +815,17 @@ QStringList MainWindow::generateExamplesFromTranslation(const QString& word, con
     qDebug() << "生成了" << examples.size() << "个例句";
     return examples;
 }
+
+void MainWindow::onExampleSentencesReceived(const QStringList& examples, bool success, const QString& error)
+{
+    qDebug() << "收到例句，数量:" << examples.size() << "成功:" << success;
+
+    if (success && !examples.isEmpty()) {
+        m_currentExamples = examples;
+        updateExampleDisplay();
+    } else {
+        qDebug() << "例句获取失败:" << error;
+        m_currentExamples = getDefaultExamples(m_currentQuery);
+        updateExampleDisplay();
+    }
+}
