@@ -120,7 +120,7 @@ void HistoryModel::searchHistory(const QString& keyword)
     endResetModel();
 }
 
-// 新增：清除搜索状态
+//清除搜索状态
 void HistoryModel::clearSearch()
 {
     beginResetModel();

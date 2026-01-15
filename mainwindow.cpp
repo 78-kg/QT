@@ -4,9 +4,9 @@
 #include <QMessageBox>
 #include <QDebug>
 #include <QDateTime>
-#include <QTimer>  // 添加这行！必须包含QTimer头文件
+#include <QTimer>
 #include <QTextCursor>
-#include <QShortcut>        // 添加这行
+#include <QShortcut>
 #include <QStandardPaths>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -21,7 +21,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , m_historyModel(new HistoryModel(this))
     , m_networkManager(new NetworkManager(this))
-    , m_wordStatsModel(new WordStatisticsModel(this))  // 确保这行存在且正确
+    , m_wordStatsModel(new WordStatisticsModel(this))
 {
     ui->setupUi(this);
 

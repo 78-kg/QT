@@ -5,7 +5,7 @@
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QDateTime>
-#include <QPair>  // 添加这个头文件
+#include <QPair>
 #include <QStringList>
 
 class DatabaseManager : public QObject

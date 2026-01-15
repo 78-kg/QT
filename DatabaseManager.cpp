@@ -2,7 +2,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
-#include <QSqlError>  // 必须包含这个头文件才能使用QSqlError的方法
+#include <QSqlError>
 
 DatabaseManager& DatabaseManager::instance()
 {

@@ -21,7 +21,7 @@ public:
     void updateData();
     void clearHistory();
 
-    // 新增：搜索功能
+    //搜索功能
     void searchHistory(const QString& keyword);
     void clearSearch();
 

@@ -14,7 +14,7 @@ NetworkManager::NetworkManager(QObject *parent)
 {
     connect(m_networkManager, &QNetworkAccessManager::finished,
             this, [this](QNetworkReply* reply) {
-                // 这里处理通用网络错误
+                // 处理通用网络错误
                 if (reply->error() != QNetworkReply::NoError) {
                     emit networkError(reply->errorString());
                 }
@@ -26,8 +26,8 @@ NetworkManager::NetworkManager(QObject *parent)
 void NetworkManager::initKeys()
 {
     // 填入你的真实API密钥
-    m_baiduAppId = "20260104002532859";  // 你的百度App ID
-    m_baiduSecretKey = "kFnYilHeW0sp6p9Lcovj";  // 你的百度密钥
+    m_baiduAppId = "20260104002532859";  //百度App ID
+    m_baiduSecretKey = "kFnYilHeW0sp6p9Lcovj";  //百度密钥
     qDebug() << "API密钥已加载，启用百度翻译";
 }
 
